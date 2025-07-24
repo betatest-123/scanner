@@ -1,0 +1,169 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Shipment IN/OUT</title>
+<style>
+  body {
+    font-family: Arial, sans-serif;
+    background: #f4f6f8;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    height: 100vh;
+  }
+  .container {
+    width: 95%;
+    max-width: 500px;
+    background: white;
+    padding: 20px;
+    border-radius: 12px;
+    box-shadow: 0 6px 15px rgba(0,0,0,0.1);
+    text-align: center;
+  }
+  h2 {
+    font-size: 22px;
+    margin-bottom: 15px;
+  }
+  input {
+    width: 100%;
+    padding: 16px;
+    font-size: 18px;
+    border-radius: 8px;
+    border: 1px solid #ccc;
+    margin-bottom: 10px;
+  }
+  button {
+    width: 48%;
+    padding: 16px;
+    font-size: 18px;
+    border-radius: 8px;
+    border: none;
+    color: white;
+    font-weight: bold;
+    cursor: pointer;
+    margin: 5px 1%;
+  }
+  .btn-in { background: #4caf50; }
+  .btn-in:hover { background: #388e3c; }
+  .btn-out { background: #f44336; }
+  .btn-out:hover { background: #d32f2f; }
+  #status {
+    margin-top: 15px;
+    font-size: 16px;
+    font-weight: bold;
+  }
+  #status.success { color: green; }
+  #status.error { color: red; }
+  .history {
+    margin-top: 20px;
+    text-align: left;
+    font-size: 14px;
+    background: #fafafa;
+    padding: 10px;
+    border-radius: 8px;
+    border: 1px solid #ccc;
+    max-height: 180px;
+    overflow-y: auto;
+  }
+  .history h3 {
+    margin-top: 0;
+    text-align: center;
+  }
+  .history ul { padding: 0; list-style: none; }
+  .history li {
+    padding: 5px;
+    font-size: 14px;
+    margin-bottom: 4px;
+    border-radius: 4px;
+  }
+  .in-entry { background: #e8f5e9; color: #2e7d32; }
+  .out-entry { background: #ffebee; color: #c62828; }
+</style>
+</head>
+<body>
+<div class="container">
+  <h2>Shipment Scanner</h2>
+  <input type="text" id="barcode" placeholder="Scan or enter barcode" autofocus />
+  <div>
+    <button class="btn-in" onclick="sendData('IN')">Mark IN</button>
+    <button class="btn-out" onclick="sendData('OUT')">Mark OUT</button>
+  </div>
+  <div id="status"></div>
+  <audio id="successSound" src="https://actions.google.com/sounds/v1/cartoon/wood_plank_flicks.ogg" preload="auto"></audio>
+  <audio id="errorSound" src="https://actions.google.com/sounds/v1/cartoon/clang_and_wobble.ogg" preload="auto"></audio>
+  <div class="history">
+    <h3>Last 5 Scans</h3>
+    <ul id="historyList"></ul>
+  </div>
+</div>
+<script>
+const DEPLOYMENT_URL = "https://script.google.com/macros/s/AKfycbzUNbIY4RhcHjHp4EZwaMO5iQ0uYjYiIocxuZ7TRVwe_vXKfjw_ickrk8r6kjzHgsH3/exec";
+let historyData = [];
+
+async function sendData(direction) {
+  const barcode = document.getElementById('barcode').value.trim();
+  if (!barcode) {
+    alert('Please enter or scan the shipment barcode.');
+    return;
+  }
+
+  const statusDiv = document.getElementById('status');
+  const successSound = document.getElementById('successSound');
+  const errorSound = document.getElementById('errorSound');
+
+  statusDiv.textContent = 'Sending...';
+  statusDiv.className = '';
+
+  try {
+    const response = await fetch(DEPLOYMENT_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ barcode, direction })
+    });
+    const text = await response.text();
+    if (text.includes("Success")) {
+      statusDiv.textContent = "✅ Logged successfully!";
+      statusDiv.className = 'success';
+      successSound.play();
+      updateHistory(barcode, direction);
+    } else {
+      statusDiv.textContent = "❌ Error: " + text;
+      statusDiv.className = 'error';
+      errorSound.play();
+    }
+    document.getElementById('barcode').value = '';
+    document.getElementById('barcode').focus();
+  } catch (error) {
+    statusDiv.textContent = '⚠️ Network error.';
+    statusDiv.className = 'error';
+    errorSound.play();
+  }
+}
+
+// Auto-submit on Enter key (for barcode scanners)
+document.getElementById('barcode').addEventListener('keypress', function(event) {
+  if (event.key === 'Enter') {
+    sendData('IN'); // Default action on Enter
+  }
+});
+
+function updateHistory(barcode, direction) {
+  historyData.unshift({ barcode, direction, time: new Date().toLocaleTimeString() });
+  if (historyData.length > 5) historyData.pop();
+
+  const list = document.getElementById('historyList');
+  list.innerHTML = '';
+  historyData.forEach(item => {
+    const li = document.createElement('li');
+    li.textContent = `[${item.time}] ${item.barcode} - ${item.direction}`;
+    li.className = (item.direction === 'IN') ? 'in-entry' : 'out-entry';
+    list.appendChild(li);
+  });
+}
+</script>
+</body>
+</html>
